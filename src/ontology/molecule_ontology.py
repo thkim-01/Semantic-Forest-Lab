@@ -1,7 +1,7 @@
 """
 Molecule Ontology: 화학 온톨로지 구조 정의
 """
-from typing import List, Dict, Set, Optional
+from typing import List, Dict, Optional, Union
 from owlready2 import *
 import os
 from pathlib import Path
@@ -14,6 +14,7 @@ class MoleculeOntology:
         self,
         ontology_path: str = "ontology/DTO.xrdf",
         base_dto_path: Optional[str] = None,
+        base_ontology_paths: Optional[List[str]] = None,
     ):
         """
         Args:
@@ -22,33 +23,57 @@ class MoleculeOntology:
                 - 파일이 없으면 base DTO(기본: DTO.owl 또는 DTO.xrdf)를 로드한 뒤
                   확장합니다.
             base_dto_path: 신규 온톨로지 생성 시 기반으로 사용할 DTO 파일 경로(선택).
+                (하위 호환용 단일 경로)
+            base_ontology_paths: 신규 온톨로지 생성 시 기반으로 시도할 온톨로지 경로 우선순위 목록.
         """
 
         # Target ontology path (workspace-specific ontology for the dataset)
         self.ontology_path = ontology_path
-        self.base_dto_path = (
-            base_dto_path or self._resolve_default_base_dto_path()
+        self.base_dto_path = base_dto_path  # backward compatibility
+        self.base_ontology_paths = self._normalize_base_ontology_paths(
+            base_ontology_paths=base_ontology_paths,
+            base_dto_path=base_dto_path,
         )
         self.onto = None
         self._load_and_enrich_ontology()
 
     @staticmethod
-    def _resolve_default_base_dto_path() -> Optional[str]:
-        """Pick a local DTO source file.
-
-        In practice, `DTO.xrdf` has been the most robust to parse locally.
-        `DTO.owl` may include imports / constructs that can fail to load
-        depending on Owlready2 version or environment.
-        """
-        candidates = [
+    def _default_base_ontology_candidates() -> List[str]:
+        """Default ontology candidates when no dataset-specific base is provided."""
+        return [
             os.path.join("ontology", "DTO.xrdf"),
             os.path.join("ontology", "DTO.owl"),
             os.path.join("ontology", "DTO.xml"),
         ]
+
+    @classmethod
+    def _normalize_base_ontology_paths(
+        cls,
+        base_ontology_paths: Optional[List[str]] = None,
+        base_dto_path: Optional[Union[str, List[str]]] = None,
+    ) -> List[str]:
+        """Normalize and de-duplicate preferred base ontology paths."""
+        candidates: List[str] = []
+
+        if base_ontology_paths:
+            candidates.extend([str(p) for p in base_ontology_paths if p])
+
+        if base_dto_path:
+            if isinstance(base_dto_path, (list, tuple)):
+                candidates.extend([str(p) for p in base_dto_path if p])
+            else:
+                candidates.append(str(base_dto_path))
+
+        if not candidates:
+            candidates.extend(cls._default_base_ontology_candidates())
+
+        uniq: List[str] = []
+        seen = set()
         for p in candidates:
-            if os.path.exists(p):
-                return p
-        return None
+            if p not in seen:
+                uniq.append(p)
+                seen.add(p)
+        return uniq
     
     def _load_and_enrich_ontology(self):
         """Load DTO and inject Chemical Ontology structure"""
@@ -59,8 +84,11 @@ class MoleculeOntology:
         loaded_from = None
         if os.path.exists(self.ontology_path):
             loaded_from = self.ontology_path
-        elif self.base_dto_path and os.path.exists(self.base_dto_path):
-            loaded_from = self.base_dto_path
+        else:
+            for p in self.base_ontology_paths:
+                if os.path.exists(p):
+                    loaded_from = p
+                    break
 
         if loaded_from:
             print(f"Loading base ontology from {loaded_from}...")
@@ -79,10 +107,11 @@ class MoleculeOntology:
                 print(f"Failed to load ontology from {loaded_from}: {e}.")
 
                 fallback_candidates = [
-                    os.path.join("ontology", "DTO.xrdf"),
-                    os.path.join("ontology", "DTO.owl"),
-                    os.path.join("ontology", "DTO.xml"),
+                    p for p in self.base_ontology_paths if p != loaded_from
                 ]
+                for p in self._default_base_ontology_candidates():
+                    if p not in fallback_candidates:
+                        fallback_candidates.append(p)
                 fallback_loaded = False
                 for fb in fallback_candidates:
                     if (fb != loaded_from) and os.path.exists(fb):

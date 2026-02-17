@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import train_test_split
-from typing import Optional
+from typing import List, Optional
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -37,6 +37,39 @@ from src.sdt.logic_forest import SemanticForest
 def _safe_name(name: str) -> str:
     s = re.sub(r"[^a-zA-Z0-9_.-]+", "_", str(name))
     return s[:80].strip("_") or "task"
+
+
+def _dataset_base_ontology_candidates(
+    dataset_key: str,
+    ontology_dir: str = "ontology",
+) -> List[str]:
+    key = str(dataset_key or "").strip().lower()
+    odir = Path(ontology_dir)
+
+    dto_defaults = [
+        odir / "DTO.xrdf",
+        odir / "DTO.owl",
+        odir / "DTO.xml",
+    ]
+
+    mapping = {
+        # 화학 구조 및 생물학적 역할
+        "bbbp": [odir / "chebi.owl"],
+        # 약물-단백질 타깃 상호작용
+        "bace": [odir / "DTO.owl"],
+        # 화학/약물 온톨로지 조합
+        "clintox": [odir / "chebi.owl", odir / "DTO.owl"],
+        # 바이러스/질병 용어 + 실험 온톨로지
+        "hiv": [odir / "Thesaurus.owl", odir / "bao_complete.owl"],
+        # 세포 경로 + 실험 온톨로지
+        "tox21": [odir / "pato.owl", odir / "go.owl", odir / "bao_complete.owl"],
+        # 의학 주제어
+        "sider": [odir / "mesh.owl"],
+    }
+
+    candidates = mapping.get(key, []) + dto_defaults
+    # Return all candidates (existing or not); loader will pick first existing.
+    return [str(p) for p in candidates]
 
 
 # NOTE: commit_sha / commit_message tracking was intentionally removed.
@@ -115,6 +148,7 @@ def evaluate_task(
     random_state: int,
     compute_backend: str,
     torch_device: str,
+    ontology_dir: str,
 ):
     df = pd.read_csv(csv_path)
 
@@ -142,7 +176,18 @@ def evaluate_task(
     if onto_path.exists():
         onto_path.unlink()
 
-    onto = MoleculeOntology(str(onto_path))
+    base_onto_candidates = _dataset_base_ontology_candidates(
+        dataset_key,
+        ontology_dir=ontology_dir,
+    )
+    print(
+        f"Ontology candidates for {dataset_name}/{label_col}: "
+        f"{base_onto_candidates}"
+    )
+    onto = MoleculeOntology(
+        str(onto_path),
+        base_ontology_paths=base_onto_candidates,
+    )
     extractor = MolecularFeatureExtractor(cache_path=feature_cache_path)
 
     try:
@@ -462,6 +507,14 @@ def main():
         default="auto",
         help="Torch device when --compute-backend torch/auto (e.g., auto, cpu, cuda).",
     )
+    parser.add_argument(
+        "--ontology-dir",
+        default="ontology",
+        help=(
+            "Directory containing base ontology files "
+            "(e.g., DTO.owl, chebi.owl, pato.owl)."
+        ),
+    )
     args = parser.parse_args()
 
     if args.algorithm:
@@ -611,6 +664,7 @@ def main():
                         random_state=args.random_state,
                         compute_backend=args.compute_backend,
                         torch_device=args.torch_device,
+                        ontology_dir=args.ontology_dir,
                     )
                 except Exception as e:
                     res = {

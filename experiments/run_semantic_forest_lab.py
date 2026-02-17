@@ -51,6 +51,8 @@ def build_command(args, profile: dict):
         str(args.compute_backend),
         "--torch-device",
         str(args.torch_device),
+        "--ontology-dir",
+        str(args.ontology_dir),
         "--out",
         str(out_csv),
     ]
@@ -87,6 +89,7 @@ def main():
     parser.add_argument("--out-dir", default=str(Path("output") / "lab_runs"))
     parser.add_argument("--compute-backend", default="auto", choices=["auto", "numpy", "torch"])
     parser.add_argument("--torch-device", default="auto")
+    parser.add_argument("--ontology-dir", default="ontology")
 
     # Optional overrides (profile defaults if omitted)
     parser.add_argument("--n-estimators", type=int, default=None)
