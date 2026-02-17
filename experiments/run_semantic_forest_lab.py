@@ -13,7 +13,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.parent))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    # Insert at front so local `src` wins over any installed package named `src`.
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.algorithms import load_algorithm_profile
 
