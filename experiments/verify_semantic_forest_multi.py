@@ -212,10 +212,36 @@ def evaluate_task(
         f"Ontology candidates for {dataset_name}/{label_col}: "
         f"{base_onto_candidates}"
     )
-    onto = MoleculeOntology(
-        str(onto_path),
-        base_ontology_paths=base_onto_candidates,
-    )
+    try:
+        onto = MoleculeOntology(
+            str(onto_path),
+            base_ontology_paths=base_onto_candidates,
+        )
+    except TypeError as e:
+        # Backward compatibility: older MoleculeOntology supports only
+        # `base_dto_path` and not `base_ontology_paths`.
+        if "base_ontology_paths" not in str(e):
+            raise
+
+        legacy_base = next(
+            (p for p in base_onto_candidates if Path(p).exists()),
+            None,
+        )
+        if legacy_base:
+            print(
+                "[OntologyCompat] Fallback to legacy constructor with "
+                f"base_dto_path={legacy_base}"
+            )
+            onto = MoleculeOntology(
+                str(onto_path),
+                base_dto_path=legacy_base,
+            )
+        else:
+            print(
+                "[OntologyCompat] No existing ontology candidate found; "
+                "using MoleculeOntology default base path."
+            )
+            onto = MoleculeOntology(str(onto_path))
     extractor = MolecularFeatureExtractor(cache_path=feature_cache_path)
 
     try:
