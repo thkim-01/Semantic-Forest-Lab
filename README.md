@@ -36,6 +36,26 @@ pip install -r requirements.txt
 # pip install torch
 ```
 
+## 온톨로지(OWL) 다운로드 가이드
+
+일부 온톨로지 파일은 용량이 커서 GitHub 기본 제한(100MB) 때문에 레포에 포함되지 않을 수 있습니다.
+아래 링크에서 직접 내려받아 `ontology/` 폴더에 배치해 주세요.
+
+| Ontology | 포맷 | 다운로드 링크 | 권장 파일명 | 주 사용 데이터셋 |
+|---|---|---|---|---|
+| PATO | OWL, OBO | http://obofoundry.org/ontology/pato.html | `ontology/pato.owl` | Tox21 |
+| NCIT (NCI Thesaurus) | OWL, Text | https://evs.nci.nih.gov/ftp1/NCI_Thesaurus/ | `ontology/Thesaurus.owl` | HIV |
+| GO (Gene Ontology) | OWL, OBO | http://geneontology.org/docs/download-ontology/ | `ontology/go.owl` | Tox21 |
+| DTO | OWL | https://github.com/DrugTargetOntology/DTO | `ontology/DTO.owl` (또는 `DTO.xrdf`) | BACE, ClinTox |
+| ChEBI | OWL, OBO | http://aber-owl.net/ontology/CHEBI/#/Overview | `ontology/chebi.owl` | BBBP, ClinTox |
+| BAO | OWL | https://github.com/BioAssayOntology/BAO | `ontology/bao_complete.owl` | HIV, Tox21 |
+| MeSH | XML, ASCII | https://www.nlm.nih.gov/databases/download/mesh.html | `ontology/mesh.owl` *(변환본)* | SIDER |
+
+> 참고
+> - 현재 멀티 벤치마크 스크립트는 데이터셋별로 우선 온톨로지 후보를 자동 선택합니다.
+> - 해당 파일이 없으면 DTO 계열(`DTO.xrdf`, `DTO.owl`, `DTO.xml`)로 fallback 합니다.
+> - MeSH는 원본이 OWL이 아닐 수 있어, XML/ASCII에서 OWL 변환본을 준비해야 합니다.
+
 ## 빠른 시작 (Quick Start)
 
 ### 0. 알고리즘 버전 실행 (권장)
@@ -93,6 +113,55 @@ python experiments/verify_semantic_forest_multi.py --algorithm c45
 python experiments/verify_semantic_forest_multi.py --algorithm cart
 ```
 
+## Description Logic 설정
+
+각 데이터셋은 특성에 맞는 Description Logic(DL) 프로필을 자동 적용합니다.
+설정은 `experiments/dl_profile_config.json`에 정의되어 있으며, 다음과 같이 분류됩니다:
+
+| 데이터셋 | DL Profile | 특성 |
+|---|---|---|
+| BBBP | **ALC** | 화학 구조 + 보수(complement) 지원 필요 |
+| BACE | **EL** | 약물-단백질 상호작용, 존재 제약(∃) 중심 |
+| ClinTox | **EL** | 약물 독성, 단순 존재 제약 충분 |
+| HIV | **ALC** | 질병 용어 + 보수 연산 필요 |
+| Tox21 | **EL** | 세포 경로, 존재 제약으로 충분 |
+| SIDER | **EL** | 약물 부작용, 단순 존재 제약 충분 |
+
+### DL Profile 설명
+
+- **ALC** (Attributive Language with Complement)
+  - $\mathcal{ALC} = \exists r.C \mid \forall r.C \mid \neg C \mid C \sqcap D$
+  - 개념 보수(complement), 교집합(intersection) 연산 지원
+  - 더 표현력 있으나 추론 비용 높음
+  - 사용: BBBP (ChEBI), HIV (Thesaurus)
+
+- **EL** (Existential Quantification)
+  - $\mathcal{EL} = \exists r.C \mid C \sqcap D$
+  - 존재 제약(∃)과 교집합(∩)만 지원
+  - 표현력은 제한적이지만 추론 효율 높음
+  - 사용: BACE, ClinTox, Tox21, SIDER
+
+### refinement 생성의 영향
+
+DL profile은 `RefinementGenerator`에서 생성 가능한 refinement 유형을 결정합니다:
+
+```python
+# ALC 프로필: 더 많은 refinement 유형 가능
+- IsA(concept1, concept2)       # concept1 ⊆ concept2
+- HasProperty(role, value)      # ∃ role.value
+- Not(concept)                  # ¬concept (ALC 만 가능)
+- Complement(concept)           # 여집합 (ALC 만 가능)
+
+# EL 프로필: 단순 존재 제약만
+- IsA(concept1, concept2)       
+- HasProperty(role, value)      
+```
+
+데이터셋별 적절한 DL profile을 사용하면:
+- **표현력**: 데이터셋 특성에 맞는 의미론적 feature 생성
+- **성능**: 불필요한 복잡도 제거로 학습 속도 향상
+- **해석성**: 도메인 특성에 맞는 명확한 규칙 생성
+
 ## 버전 구조
 
 ```text
@@ -104,6 +173,7 @@ src/algorithms/
 	profiles.py
 experiments/
 	run_semantic_forest_lab.py
+	dl_profile_config.json
 ```
 
 ## 알고리즘 설명
