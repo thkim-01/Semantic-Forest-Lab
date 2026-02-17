@@ -32,6 +32,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.ontology.molecule_ontology import MoleculeOntology
 from src.ontology.smiles_converter import MolecularFeatureExtractor
 from src.sdt.logic_forest import SemanticForest
+from src.utils.compute_backend import resolve_backend, resolve_torch_device
 
 
 def _safe_name(name: str) -> str:
@@ -70,6 +71,33 @@ def _dataset_base_ontology_candidates(
     candidates = mapping.get(key, []) + dto_defaults
     # Return all candidates (existing or not); loader will pick first existing.
     return [str(p) for p in candidates]
+
+
+def _report_and_validate_compute_env(args: argparse.Namespace) -> None:
+    """Print compute environment and fail fast on invalid strict CUDA requests."""
+    requested_backend = str(getattr(args, "compute_backend", "auto") or "auto")
+    requested_device = str(getattr(args, "torch_device", "auto") or "auto")
+    resolved_backend = resolve_backend(requested_backend)
+    resolved_device = resolve_torch_device(requested_device)
+
+    print("--- Pipeline Environment Report ---")
+    print(f"Requested Backend : {requested_backend}")
+    print(f"Requested Device  : {requested_device}")
+    print(f"Resolved Backend  : {resolved_backend}")
+    print(f"Resolved Device   : {resolved_device}")
+
+    # Strict guard: when user explicitly requests CUDA, do not silently continue on CPU.
+    if requested_device.strip().lower().startswith("cuda") and resolved_device == "cpu":
+        raise SystemExit(
+            "[Critical Error] CUDA device requested but not available. "
+            "Check torch CUDA install / driver / environment."
+        )
+
+    if resolved_backend == "torch":
+        print("Backend Status    : Torch backend enabled")
+    else:
+        print("Backend Status    : NumPy backend enabled")
+    print("----------------------------------")
 
 
 # NOTE: commit_sha / commit_message tracking was intentionally removed.
@@ -516,6 +544,8 @@ def main():
         ),
     )
     args = parser.parse_args()
+
+    _report_and_validate_compute_env(args)
 
     if args.algorithm:
         algo_to_criterion = {
