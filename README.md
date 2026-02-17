@@ -118,14 +118,14 @@ python experiments/verify_semantic_forest_multi.py --algorithm cart
 각 데이터셋은 특성에 맞는 Description Logic(DL) 프로필을 자동 적용합니다.
 설정은 `experiments/dl_profile_config.json`에 정의되어 있으며, 다음과 같이 분류됩니다:
 
-| 데이터셋 | DL Profile | 특성 |
-|---|---|---|
-| BBBP | **ALC** | 화학 구조 + 보수(complement) 지원 필요 |
-| BACE | **EL** | 약물-단백질 상호작용, 존재 제약(∃) 중심 |
-| ClinTox | **EL** | 약물 독성, 단순 존재 제약 충분 |
-| HIV | **ALC** | 질병 용어 + 보수 연산 필요 |
-| Tox21 | **EL** | 세포 경로, 존재 제약으로 충분 |
-| SIDER | **EL** | 약물 부작용, 단순 존재 제약 충분 |
+| 데이터셋 | DL Profile | 특성 | 온톨로지 |
+|---|---|---|---|
+| BBBP | **ALC** | 화학 구조 특성 보수(complement) 표현 | ChEBI |
+| BACE | **ALC** | 약물-단백질 결합/비결합 구분 | DTO |
+| ClinTox | **ALC** | 임상 안전성 + 화학 위험도 결합 표현 | ChEBI + DTO |
+| HIV | **ALC** | 질병 용어 + 실험 방법 결합 표현 | Thesaurus + BAO |
+| Tox21 | **ALC** | 3개 온톨로지 복합 표현: 생물경로(GO) + 세포표현형(PATO) + 실험(BAO) | PATO + GO + BAO |
+| SIDER | **EL** | MeSH 의학 계층 구조, 단순 존재 제약 충분 | MeSH |
 
 ### DL Profile 설명
 
@@ -146,21 +146,33 @@ python experiments/verify_semantic_forest_multi.py --algorithm cart
 DL profile은 `RefinementGenerator`에서 생성 가능한 refinement 유형을 결정합니다:
 
 ```python
-# ALC 프로필: 더 많은 refinement 유형 가능
+# ALC 프로필: 더 많은 refinement 유형 가능 (BBBP, BACE, ClinTox, HIV, Tox21)
 - IsA(concept1, concept2)       # concept1 ⊆ concept2
 - HasProperty(role, value)      # ∃ role.value
-- Not(concept)                  # ¬concept (ALC 만 가능)
-- Complement(concept)           # 여집합 (ALC 만 가능)
+- Not(concept)                  # ¬concept (보수)
+- Complement(concept)           # 여집합 (ALC만 가능)
 
-# EL 프로필: 단순 존재 제약만
-- IsA(concept1, concept2)       
-- HasProperty(role, value)      
+# EL 프로필: 단순 존재 제약 중심 (SIDER)
+- IsA(concept1, concept2)       # IsA 관계만
+- HasProperty(role, value)      # 존재 제약만
 ```
 
-데이터셋별 적절한 DL profile을 사용하면:
-- **표현력**: 데이터셋 특성에 맞는 의미론적 feature 생성
-- **성능**: 불필요한 복잡도 제거로 학습 속도 향상
-- **해석성**: 도메인 특성에 맞는 명확한 규칙 생성
+### 데이터셋별 개선점
+
+**변경 사항 (옵션 2 적용)**:
+
+- **BACE** (EL → ALC): 약물이 **NOT bind**하는 경우 구분 가능
+  - Before: `∃ bindsTarget.BetaSecretase`
+  - After: `∃ bindsTarget.BetaSecretase ⊓ ¬(bindsTarget.WrongTarget)` ✓
+
+- **ClinTox** (EL → ALC): 임상 안전성과 화학 위험도 동시 표현
+  - Before: `∃ hasClinicProperty.ClinicallyApproved`
+  - After: `∃ hasClinicProperty.ClinicallyApproved ⊓ ¬(hasStructure.Mutagenic)` ✓
+
+- **Tox21** (EL → ALC): 3개 온톨로지 복합 표현
+  - Before: `∃ induces.MatrixMetalloproteinase`
+  - After: `∃ induces.MatrixMetalloproteinase ⊓ ¬(protectedBy.TIMP)` ✓
+  - 12개 Assay 특이성 구분 향상
 
 ## 버전 구조
 
