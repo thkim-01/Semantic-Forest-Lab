@@ -11,6 +11,7 @@ Use `--all-tasks` to evaluate all tasks for multi-task datasets (Tox21, SIDER).
 
 import argparse
 import csv
+import json
 import os
 import re
 import sys
@@ -71,6 +72,36 @@ def _dataset_base_ontology_candidates(
     candidates = mapping.get(key, []) + dto_defaults
     # Return all candidates (existing or not); loader will pick first existing.
     return [str(p) for p in candidates]
+
+
+def _dataset_dl_profile(dataset_key: str, config_path: Optional[Path] = None) -> str:
+    """Load dataset-specific Description Logic profile from config.
+    
+    Falls back to default 'ALC' if config not found or dataset not in config.
+    
+    Args:
+        dataset_key: Dataset identifier (e.g., 'bbbp', 'hiv')
+        config_path: Path to dl_profile_config.json. If None, uses default path.
+    
+    Returns:
+        Description Logic profile name (e.g., 'ALC', 'EL')
+    """
+    if config_path is None:
+        config_path = Path(__file__).parent / "dl_profile_config.json"
+    
+    default_profile = "ALC"
+    
+    if not config_path.exists():
+        return default_profile
+    
+    try:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        key = str(dataset_key or "").strip().lower()
+        return config.get(key, default_profile)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"Warning: Failed to load DL profile config from {config_path}: {e}")
+        return default_profile
 
 
 def _report_and_validate_compute_env(args: argparse.Namespace) -> None:
@@ -177,6 +208,7 @@ def evaluate_task(
     compute_backend: str,
     torch_device: str,
     ontology_dir: str,
+    dl_profile: str = "ALC",
 ):
     df = pd.read_csv(csv_path)
 
@@ -286,6 +318,7 @@ def evaluate_task(
                 "split_criterion": split_criterion,
                 "compute_backend": compute_backend,
                 "torch_device": torch_device,
+                "dl_profile": dl_profile,
             },
         )
         forest.fit(train_instances)
@@ -692,6 +725,12 @@ def main():
                 if "default_task" in ds:
                     tasks = [ds["default_task"]]
 
+            # Load dataset-specific DL profile from config
+            dl_profile = _dataset_dl_profile(ds["key"])
+            print(
+                f"Loaded DL profile for {ds['name']}: {dl_profile}"
+            )
+
             for task in tasks:
                 if (ds["name"], task) in completed:
                     print(f"Skipping (already in output): {ds['name']}/{task}")
@@ -721,6 +760,7 @@ def main():
                         compute_backend=args.compute_backend,
                         torch_device=args.torch_device,
                         ontology_dir=args.ontology_dir,
+                        dl_profile=dl_profile,
                     )
                 except Exception as e:
                     res = {
