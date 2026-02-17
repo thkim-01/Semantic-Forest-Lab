@@ -19,7 +19,11 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def verify_forest(split_criterion: str = "information_gain"):
+def verify_forest(
+    split_criterion: str = "information_gain",
+    compute_backend: str = "auto",
+    torch_device: str = "auto",
+):
     logger.info(
         "Starting Semantic Forest Verification on BBBP... "
         f"(split_criterion={split_criterion})"
@@ -76,6 +80,8 @@ def verify_forest(split_criterion: str = "information_gain"):
         learner_kwargs={
             'split_criterion': split_criterion,
             'dl_profile': dl_profile,
+            'compute_backend': compute_backend,
+            'torch_device': torch_device,
         },
     )
     forest.fit(train_instances)
@@ -103,5 +109,20 @@ if __name__ == "__main__":
         choices=["information_gain", "id3", "gain_ratio", "c45_gain_ratio", "gini"],
         help="Split criterion: ID3(info gain), C4.5(gain ratio), CART(gini).",
     )
+    parser.add_argument(
+        "--compute-backend",
+        default="auto",
+        choices=["auto", "numpy", "torch"],
+        help="Compute backend for impurity calculations.",
+    )
+    parser.add_argument(
+        "--torch-device",
+        default="auto",
+        help="Torch device when compute backend is torch/auto.",
+    )
     args = parser.parse_args()
-    verify_forest(split_criterion=args.split_criterion)
+    verify_forest(
+        split_criterion=args.split_criterion,
+        compute_backend=args.compute_backend,
+        torch_device=args.torch_device,
+    )

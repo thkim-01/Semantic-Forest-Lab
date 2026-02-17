@@ -25,11 +25,15 @@ SMILES 기반 분자 구조를 **Drug Target Ontology (DTO)** 기반 온톨로�
 
 - Python: 3.9+
 - 주요 의존성: `owlready2`, `rdkit`, `scikit-learn`, `pandas`, `numpy`
+- 선택 의존성(가속): `torch` (CUDA 가능 환경에서 GPU 사용)
 
 ## 설치
 
 ```bash
 pip install -r requirements.txt
+
+# (선택) PyTorch 가속 사용 시
+# pip install torch
 ```
 
 ## 빠른 시작 (Quick Start)
@@ -45,7 +49,13 @@ python experiments/run_semantic_forest_lab.py --algorithm c45
 
 # CART 버전 실행
 python experiments/run_semantic_forest_lab.py --algorithm cart
+
+# (선택) torch 백엔드 사용
+python experiments/run_semantic_forest_lab.py --algorithm id3 --compute-backend torch --torch-device auto
 ```
+
+> 참고: 현재 코드의 주요 병목 중 일부는 온톨로지 객체 순회/정제(refinement) 판정 로직입니다.
+> PyTorch 가속은 impurity/entropy 계산을 우선 가속하며, 전체 파이프라인을 완전 GPU-only로 바꾸지는 않습니다.
 
 ### 1. 단일 데이터셋 테스트 (BBBP)
 

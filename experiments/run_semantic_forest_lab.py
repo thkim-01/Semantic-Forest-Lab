@@ -44,6 +44,10 @@ def build_command(args, profile: dict):
         str(args.test_size),
         "--random-state",
         str(args.random_state),
+        "--compute-backend",
+        str(args.compute_backend),
+        "--torch-device",
+        str(args.torch_device),
         "--out",
         str(out_csv),
     ]
@@ -78,6 +82,8 @@ def main():
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--feature-cache-dir", default=str(Path("output") / "feature_cache"))
     parser.add_argument("--out-dir", default=str(Path("output") / "lab_runs"))
+    parser.add_argument("--compute-backend", default="auto", choices=["auto", "numpy", "torch"])
+    parser.add_argument("--torch-device", default="auto")
 
     # Optional overrides (profile defaults if omitted)
     parser.add_argument("--n-estimators", type=int, default=None)

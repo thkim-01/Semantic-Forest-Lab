@@ -6,6 +6,12 @@ from src.sdt.logic_refinement import (
     OntologyRefinementGenerator,
     load_refinements_json,
 )
+from src.utils.compute_backend import (
+    calculate_entropy,
+    calculate_gini,
+    resolve_backend,
+    resolve_torch_device,
+)
 
 
 class LogicTreeNode(TreeNode):
@@ -72,6 +78,8 @@ class LogicSDTLearner:
         refinement_file: Optional[str] = None,
         split_criterion: str = 'information_gain',
         dl_profile: str = 'ALC',
+        compute_backend: str = 'auto',
+        torch_device: str = 'auto',
     ):
         self.onto_manager = ontology_manager
         self.max_depth = max_depth
@@ -83,6 +91,8 @@ class LogicSDTLearner:
         self.refinement_mode = refinement_mode
         self.refinement_file = refinement_file
         self.split_criterion = split_criterion
+        self.compute_backend = resolve_backend(compute_backend)
+        self.torch_device = resolve_torch_device(torch_device)
 
         static_refs = None
         if refinement_mode == 'static':
@@ -104,6 +114,9 @@ class LogicSDTLearner:
         )
         self.tree = None
         self.class_weights_dict = {}
+
+        if self.verbose and self.compute_backend == 'torch':
+            print(f"[ComputeBackend] torch enabled (device={self.torch_device})")
 
     def fit(self, instances: List):
         """Train the SDT"""
@@ -310,35 +323,13 @@ class LogicSDTLearner:
         )
 
     def _calculate_entropy(self, instances: List) -> float:
-        if not instances:
-            return 0.0
-
-        label_counts = {}
-        for inst in instances:
-            label = self._get_label(inst)
-            if label is not None:
-                label_counts[label] = label_counts.get(label, 0) + 1
-
-        if self.class_weights_dict:
-            weighted_counts = {
-                label: count * self.class_weights_dict.get(label, 1.0)
-                for label, count in label_counts.items()
-            }
-            total = sum(weighted_counts.values())
-            counts_eval = weighted_counts
-        else:
-            total = len(instances)
-            counts_eval = label_counts
-
-        if total <= 0:
-            return 0.0
-
-        entropy = 0.0
-        for count in counts_eval.values():
-            if count > 0:
-                p = count / total
-                entropy -= p * np.log2(p)
-        return entropy
+        return calculate_entropy(
+            instances,
+            get_label=self._get_label,
+            class_weights_dict=self.class_weights_dict,
+            backend=self.compute_backend,
+            torch_device=self.torch_device,
+        )
 
     def _calculate_information_gain(
         self,
@@ -471,32 +462,13 @@ class LogicSDTLearner:
         )
 
     def _calculate_gini(self, instances: List) -> float:
-        if not instances:
-            return 0.0
-        
-        label_counts = {}
-        for inst in instances:
-            label = self._get_label(inst)
-            if label is not None:
-                label_counts[label] = label_counts.get(label, 0) + 1
-            
-        if self.class_weights_dict:
-            weighted_counts = {
-                label: count * self.class_weights_dict.get(label, 1.0)
-                for label, count in label_counts.items()
-            }
-            total = sum(weighted_counts.values())
-            counts_eval = weighted_counts
-        else:
-            total = len(instances)
-            counts_eval = label_counts
-            
-        gini = 1.0
-        for count in counts_eval.values():
-            if count > 0:
-                p = count / total
-                gini -= p * p
-        return gini
+        return calculate_gini(
+            instances,
+            get_label=self._get_label,
+            class_weights_dict=self.class_weights_dict,
+            backend=self.compute_backend,
+            torch_device=self.torch_device,
+        )
 
     def _calculate_gini_gain(
         self,

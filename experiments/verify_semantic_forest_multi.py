@@ -110,6 +110,8 @@ def evaluate_task(
     sample_size: int,
     test_size: float,
     random_state: int,
+    compute_backend: str,
+    torch_device: str,
 ):
     df = pd.read_csv(csv_path)
 
@@ -180,6 +182,8 @@ def evaluate_task(
             verbose=False,
             learner_kwargs={
                 "split_criterion": split_criterion,
+                "compute_backend": compute_backend,
+                "torch_device": torch_device,
             },
         )
         forest.fit(train_instances)
@@ -434,6 +438,17 @@ def main():
             "Set to empty string to disable caching."
         ),
     )
+    parser.add_argument(
+        "--compute-backend",
+        default="auto",
+        choices=["auto", "numpy", "torch"],
+        help="Compute backend for impurity calculations.",
+    )
+    parser.add_argument(
+        "--torch-device",
+        default="auto",
+        help="Torch device when --compute-backend torch/auto (e.g., auto, cpu, cuda).",
+    )
     args = parser.parse_args()
 
     out_path = Path(args.out)
@@ -573,6 +588,8 @@ def main():
                         sample_size=args.sample_size,
                         test_size=args.test_size,
                         random_state=args.random_state,
+                        compute_backend=args.compute_backend,
+                        torch_device=args.torch_device,
                     )
                 except Exception as e:
                     res = {
