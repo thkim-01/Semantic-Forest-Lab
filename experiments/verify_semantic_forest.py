@@ -1,5 +1,6 @@
 # flake8: noqa
 
+import argparse
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -18,8 +19,11 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def verify_forest():
-    logger.info("Starting Semantic Forest Verification on BBBP...")
+def verify_forest(split_criterion: str = "information_gain"):
+    logger.info(
+        "Starting Semantic Forest Verification on BBBP... "
+        f"(split_criterion={split_criterion})"
+    )
     
     # Load BBBP
     df = pd.read_csv("data/bbbp/BBBP.csv")
@@ -70,8 +74,7 @@ def verify_forest():
         class_weight='balanced',
         verbose=True,
         learner_kwargs={
-            # Use ID3 information gain for splits
-            'split_criterion': 'information_gain',
+            'split_criterion': split_criterion,
             'dl_profile': dl_profile,
         },
     )
@@ -93,4 +96,12 @@ def verify_forest():
         f.write(f"Forest Accuracy: {acc:.4f}\n")
 
 if __name__ == "__main__":
-    verify_forest()
+    parser = argparse.ArgumentParser(description="Verify Semantic Forest on BBBP")
+    parser.add_argument(
+        "--split-criterion",
+        default="information_gain",
+        choices=["information_gain", "id3", "gain_ratio", "c45_gain_ratio", "gini"],
+        help="Split criterion: ID3(info gain), C4.5(gain ratio), CART(gini).",
+    )
+    args = parser.parse_args()
+    verify_forest(split_criterion=args.split_criterion)
