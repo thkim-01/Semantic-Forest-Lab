@@ -86,6 +86,11 @@ python experiments/verify_semantic_forest_multi.py --n-estimators 50 --max-depth
 python experiments/verify_semantic_forest_multi.py --split-criterion information_gain
 python experiments/verify_semantic_forest_multi.py --split-criterion gain_ratio
 python experiments/verify_semantic_forest_multi.py --split-criterion gini
+
+# 알고리즘 이름으로 실행 (권장)
+python experiments/verify_semantic_forest_multi.py --algorithm id3
+python experiments/verify_semantic_forest_multi.py --algorithm c45
+python experiments/verify_semantic_forest_multi.py --algorithm cart
 ```
 
 ## 버전 구조

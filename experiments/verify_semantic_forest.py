@@ -110,6 +110,16 @@ if __name__ == "__main__":
         help="Split criterion: ID3(info gain), C4.5(gain ratio), CART(gini).",
     )
     parser.add_argument(
+        "--algorithm",
+        default=None,
+        choices=["id3", "c45", "cart"],
+        help=(
+            "Algorithm alias for split criterion. "
+            "id3 -> information_gain, c45 -> gain_ratio, cart -> gini. "
+            "If provided, this overrides --split-criterion."
+        ),
+    )
+    parser.add_argument(
         "--compute-backend",
         default="auto",
         choices=["auto", "numpy", "torch"],
@@ -121,6 +131,14 @@ if __name__ == "__main__":
         help="Torch device when compute backend is torch/auto.",
     )
     args = parser.parse_args()
+
+    if args.algorithm:
+        args.split_criterion = {
+            "id3": "information_gain",
+            "c45": "gain_ratio",
+            "cart": "gini",
+        }[args.algorithm]
+
     verify_forest(
         split_criterion=args.split_criterion,
         compute_backend=args.compute_backend,

@@ -398,6 +398,16 @@ def main():
         ),
     )
     parser.add_argument(
+        "--algorithm",
+        default=None,
+        choices=["id3", "c45", "cart"],
+        help=(
+            "Algorithm alias for split criterion. "
+            "id3 -> information_gain, c45 -> gain_ratio, cart -> gini. "
+            "If provided, this overrides --split-criterion."
+        ),
+    )
+    parser.add_argument(
         "--all-tasks",
         action="store_true",
         help="Evaluate all tasks for multi-task datasets (Tox21, SIDER).",
@@ -450,6 +460,14 @@ def main():
         help="Torch device when --compute-backend torch/auto (e.g., auto, cpu, cuda).",
     )
     args = parser.parse_args()
+
+    if args.algorithm:
+        algo_to_criterion = {
+            "id3": "information_gain",
+            "c45": "gain_ratio",
+            "cart": "gini",
+        }
+        args.split_criterion = algo_to_criterion[args.algorithm]
 
     out_path = Path(args.out)
     out_avg_path = (
