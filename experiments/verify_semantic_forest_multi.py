@@ -385,12 +385,12 @@ def main():
     parser.add_argument("--random-state", type=int, default=42)
     parser.add_argument(
         "--split-criterion",
-        default="gini",
-        choices=["information_gain", "gain_ratio", "c45_gain_ratio", "gini"],
+        default="information_gain",
+        choices=["information_gain", "id3", "gain_ratio", "c45_gain_ratio", "gini"],
         help=(
-            "Split criterion for tree growth. 'gini' uses CART's Gini impurity (default), "
-            "'gain_ratio' matches C4.5's "
-            "gain ratio; 'information_gain' matches ID3-style info gain."
+            "Split criterion for tree growth. 'information_gain' (default) and 'id3' use "
+            "ID3-style information gain; 'gain_ratio' matches C4.5's gain ratio; "
+            "'gini' uses CART's Gini impurity."
         ),
     )
     parser.add_argument(

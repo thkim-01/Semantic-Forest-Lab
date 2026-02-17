@@ -70,7 +70,7 @@ class LogicSDTLearner:
         verbose: bool = True,
         refinement_mode: str = 'dynamic',
         refinement_file: Optional[str] = None,
-        split_criterion: str = 'gini',
+        split_criterion: str = 'information_gain',
         dl_profile: str = 'ALC',
     ):
         self.onto_manager = ontology_manager
@@ -279,12 +279,95 @@ class LogicSDTLearner:
         left_inst,
         right_inst,
     ) -> float:
-        """Calculate split score using Gini gain (CART algorithm)."""
+        """Calculate split score according to selected split criterion.
+
+        Supported values:
+        - information_gain / id3: ID3-style information gain (entropy)
+        - gain_ratio / c45_gain_ratio: C4.5 gain ratio
+        - gini: CART gini gain
+        """
+        criterion = str(self.split_criterion).strip().lower()
+
+        if criterion in ('information_gain', 'id3'):
+            return self._calculate_information_gain(
+                parent_node,
+                left_inst,
+                right_inst,
+            )
+
+        if criterion in ('gain_ratio', 'c45_gain_ratio'):
+            return self._calculate_gain_ratio(
+                parent_node,
+                left_inst,
+                right_inst,
+            )
+
+        # Fallback to CART
         return self._calculate_gini_gain(
             parent_node,
             left_inst,
             right_inst,
         )
+
+    def _calculate_entropy(self, instances: List) -> float:
+        if not instances:
+            return 0.0
+
+        label_counts = {}
+        for inst in instances:
+            label = self._get_label(inst)
+            if label is not None:
+                label_counts[label] = label_counts.get(label, 0) + 1
+
+        if self.class_weights_dict:
+            weighted_counts = {
+                label: count * self.class_weights_dict.get(label, 1.0)
+                for label, count in label_counts.items()
+            }
+            total = sum(weighted_counts.values())
+            counts_eval = weighted_counts
+        else:
+            total = len(instances)
+            counts_eval = label_counts
+
+        if total <= 0:
+            return 0.0
+
+        entropy = 0.0
+        for count in counts_eval.values():
+            if count > 0:
+                p = count / total
+                entropy -= p * np.log2(p)
+        return entropy
+
+    def _calculate_information_gain(
+        self,
+        parent_node,
+        left_inst,
+        right_inst,
+    ) -> float:
+        if self.class_weights_dict:
+            n = self._get_total_weight(parent_node.instances)
+            n_left = self._get_total_weight(left_inst)
+            n_right = self._get_total_weight(right_inst)
+        else:
+            n = len(parent_node.instances)
+            n_left = len(left_inst)
+            n_right = len(right_inst)
+
+        if n <= 0:
+            return 0.0
+
+        parent_entropy = self._calculate_entropy(parent_node.instances)
+        left_entropy = self._calculate_entropy(left_inst)
+        right_entropy = self._calculate_entropy(right_inst)
+
+        gain = (
+            parent_entropy
+            - (n_left / n) * left_entropy
+            - (n_right / n) * right_entropy
+        )
+        return gain
 
     def _calculate_gain_ratio(
         self,

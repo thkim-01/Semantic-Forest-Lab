@@ -70,8 +70,8 @@ def verify_forest():
         class_weight='balanced',
         verbose=True,
         learner_kwargs={
-            # Use CART Gini impurity for splits
-            'split_criterion': 'gini',
+            # Use ID3 information gain for splits
+            'split_criterion': 'information_gain',
             'dl_profile': dl_profile,
         },
     )

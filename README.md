@@ -1,11 +1,11 @@
-# Semantic Forest - CART
+# Semantic Forest - ID3
 
 SMILES 기반 분자 구조를 **Drug Target Ontology (DTO)** 기반 온톨로지로 변환한 뒤,
-**CART (Classification and Regression Trees)** 알고리즘을 사용하는 설명가능한 결정트리를 **배깅(bootstrap aggregating)** 으로 학습해 분류 성능을 높이는 모델입니다.
+**ID3 (Information Gain)** 알고리즘을 기본 분할 기준으로 사용하는 설명가능한 결정트리를 **배깅(bootstrap aggregating)** 으로 학습해 분류 성능을 높이는 모델입니다.
 
 ## 주요 특징
 
-- **CART 알고리즘**: Gini impurity를 사용한 효율적인 분할 기준
+- **ID3 알고리즘 (기본값)**: Information Gain(Entropy) 기반 분할 기준
 - **온톨로지 기반**: Drug Target Ontology를 활용한 의미론적 결정트리
 - **Random Forest**: 배깅을 통한 앙상블 학습으로 성능 향상
 - **설명 가능성**: 의사결정 과정을 명확하게 추적 가능
@@ -52,24 +52,25 @@ python experiments/verify_semantic_forest_multi.py --datasets bbbp,clintox
 # 트리 개수 및 깊이 조정
 python experiments/verify_semantic_forest_multi.py --n-estimators 50 --max-depth 8
 
-# 분할 기준 변경 (기본: gini)
-python experiments/verify_semantic_forest_multi.py --split-criterion gini
+# 분할 기준 변경 (기본: information_gain)
+python experiments/verify_semantic_forest_multi.py --split-criterion information_gain
 ```
 
 ## 알고리즘 설명
 
-### CART (Classification and Regression Trees)
+### ID3 (Iterative Dichotomiser 3)
 
-- **분할 기준**: Gini impurity를 사용하여 최적의 분할 지점 선택
-- **Gini impurity**: $Gini = 1 - \sum_{i=1}^{n} p_i^2$
-- **특징**: C4.5 대비 계산이 빠르고, 이진 분할에 최적화
+- **분할 기준**: Information Gain을 사용하여 최적의 분할 지점 선택
+- **Entropy**: $H(S) = -\sum_{i=1}^{n} p_i \log_2 p_i$
+- **Information Gain**: $IG(S, A) = H(S) - \sum_{v \in Values(A)} \frac{|S_v|}{|S|} H(S_v)$
+- **특징**: 해석이 직관적이며 엔트로피 기반으로 불확실성 감소를 최대화
 
 ### 처리 과정
 
 1. **입력**: `data/` 디렉토리의 CSV 파일 (예: `data/bbbp/BBBP.csv`)
 2. **전처리**: SMILES → RDKit을 통한 분자 피처 추출
 3. **온톨로지 변환**: DTO 기반 온톨로지 인스턴스 생성
-4. **학습**: CART 알고리즘으로 여러 트리 학습 (배깅)
+4. **학습**: ID3 정보이득 기준으로 여러 트리 학습 (배깅)
 5. **평가**: AUC-ROC, Accuracy 등 성능 지표 계산
 
 ## 데이터셋
